@@ -1,0 +1,26 @@
+ importMethodsFrom(Matrix, as.matrix, "diag<-", isSymmetric, t, which)
+ importFrom(ggplot2, aes, geom_bar, geom_density, geom_histogram,
+            geom_point, geom_text, ggplot, stat_smooth, theme_bw, xlab,
+            ylab)
+ importFrom(graphics, legend, par, plot)
+ importFrom(grDevices, rainbow)
+ importFrom(gridExtra, grid.arrange)
+ importFrom(igraph, clusters, get.data.frame, graph.adjacency,
+            graph.data.frame)
+ importFrom(Matrix, cBind, Matrix, rBind)
+ importFrom(parallel, mclapply)
+ importFrom(RColorBrewer, brewer.pal)
+ importFrom(reshape, melt, melt.array, melt.data.frame, melt.matrix, melt.table)
+ importFrom(scales, scientific)
+ importFrom(utils, write.table)
+
+
+export(
+	mirsynergy,
+	print_modules2,
+	plot_modules,
+	summary_modules,
+	plot_module_summary,
+	tabular_module
+)
+

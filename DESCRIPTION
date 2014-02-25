@@ -1,0 +1,18 @@
+Package: Mirsynergy
+Type: Package
+Title: Mirsynergy
+Version: 0.99.2
+Date: 2014-02-06
+Author: Yue Li
+Maintainer: Yue Li <yueli@cs.toronto.edu>
+Description: Detect synergistic miRNA regulatory modules by overlapping
+        neighbourhood expansion.
+Depends: R (>= 3.0.2), igraph, ggplot2
+Imports: graphics, grDevices, gridExtra, Matrix, parallel,
+        RColorBrewer, reshape, scales, utils
+Suggests: glmnet, RUnit, BiocGenerics
+License: GPL-2
+URL: http://www.cs.utoronto.ca/~yueli/Mirsynergy.html
+biocViews: Clustering
+Lazyload: yes
+VignetteBuilder: knitr

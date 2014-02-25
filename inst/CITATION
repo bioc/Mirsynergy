@@ -1,0 +1,15 @@
+citEntry(entry="article",
+         title = "Mirsynergy: detect synergistic miRNA regulatory modules by overlapping neighbourhood expansion",
+         author = personList(
+        as.person("Yue Li"), 
+        as.person("Cheng Liang"),
+	as.person("Ka-Chun Wong"),
+	as.person("Jiawei Luo"),
+	as.person("Zhaolei Zhang")),
+	year = 2014,
+	journal = "TBD",
+	volume = "TBD",
+	pages = "TBD",
+	textVersion = paste("Yue Li, Cheng Liang, Ka-Chun Wong, Jiawei Luo, Zhaolei Zhang (2013).",
+	"Mirsynergy: detect synergistic miRNA regulatory modules by overlapping neighbourhood expansion") )
+

@@ -1,0 +1,217 @@
+%\VignetteIndexEntry{Mirsynergy}
+%
+\documentclass[12pt]{article}
+
+\usepackage[left=1in,top=1in,right=1in, bottom=1in]{geometry}
+
+\usepackage{Sweave}
+\usepackage{times}
+\usepackage{hyperref}
+\usepackage{subfig}
+\usepackage{natbib}
+\usepackage{graphicx}
+
+
+\hypersetup{ 
+colorlinks,
+citecolor=black,
+filecolor=black, 
+linkcolor=black, 
+urlcolor=black 
+}
+
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textit{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rfunarg}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+\newcommand{\Rcode}[1]{{\texttt{#1}}}
+
+\newcommand{\software}[1]{\textsf{#1}}
+\newcommand{\R}{\textsf{R}}
+
+\newcommand{\TopHat}{\software{TopHat}}
+\newcommand{\Bowtie}{\software{Bowtie}}
+
+\newcommand{\bs}{\boldsymbol}
+\newcommand{\mf}{\mathbf}
+
+\setkeys{Gin}{height=0.6\textheight}
+
+\bibliographystyle{plain}
+
+\title{Mirsynergy: detect synergistic miRNA regulatory modules by overlapping
+neighbourhood expansion}
+\author{Yue Li \\ \texttt{yueli@cs.toronto.edu}}
+\date{\today}
+
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\maketitle
+
+\section{Introduction}
+MicroRNAs (miRNAs) are $\sim$22 nucleotide small noncoding RNA that base-pair
+with mRNA primarily at the 3$'$ untranslated region (UTR) to cause mRNA
+degradation or translational repression \cite{Bartel:2009fh}. Aberrant miRNA
+expression is implicated in tumorigenesis \cite{Spizzo:2009fx}. Construction of
+microRNA regulatory modules (MiRM) will aid deciphering aberrant transcriptional
+regulatory network in cancer but is computationally challenging. Existing
+methods are stochastic or require a fixed number of regulatory modules. We
+propose \emph{Mirsynergy}, a deterministic overlapping clustering algorithm
+adapted from a recently developed framework. Briefly, Mirsynergy operates in two
+stages that first forms MiRM based on co-occurring miRNAs and then expand the
+MiRM by greedily including (excluding) mRNA into (from) the MiRM to maximize the
+synergy score, which is a function of miRNA-mRNA and gene-gene interactions
+(manuscript in prep).
+
+
+\section{Demonstration}
+In the following example, we first simulate 20 mRNA and 20 mRNA and the
+interactions among them, and then apply \Rfunction{mirsynergy} to the simulated
+data to produce module assignments. We then visualize the module assignments in
+Fig.\ref{fig:toy}
+
+<<simulation, eval=TRUE>>=
+library(Mirsynergy)
+
+load(system.file("extdata/toy_modules.RData", package="Mirsynergy"))
+
+# run mirsynergy clustering
+V <- mirsynergy(W, H, verbose=FALSE)
+
+summary_modules(V)
+@
+
+\begin{figure}[htbp]
+\begin{center}
+<<toy, eval=TRUE, fig=TRUE>>=
+load(system.file("extdata/toy_modules.RData", package="Mirsynergy"))
+
+plot_modules(V,W,H)
+@
+\caption{Module assignment on a toy example.}
+\label{fig:toy}
+\end{center}
+\end{figure}
+
+Additionally, we can also export the module assignments in a Cytoscape-friendly
+format as two separate files containing the edges and nodes using the function
+\texttt{tabular\_module} (see function manual for details).
+
+\section{Real test}
+In this section, we demonstrate the real utility of \Rpackage{Mirsynergy} in
+construct miRNA regulatory modules from real breast cancer tumor samples.
+Specifically, we downloaded the test data in the units of RPKM (read per
+kilobase of exon per million mapped reads) and RPM (reads per million miRNA
+mapped) of 13306 mRNA and 710 miRNA for the 15 individuals from TCGA (The Cancer
+Genome Atlas). We furhter log2-transformed and mean-centred the data. For
+demonstration purpose, we used 20\% of the expression data containing 2661 mRNA
+and 142 miRNA expression. Moreover, the corresponding sequence-based
+miRNA-target site matrix $\mf{W}$ was downloaded from TargetScanHuman 6.2
+database \cite{Friedman:2009km} and the gene-gene interaction (GGI) data matrix
+$\mf{H}$ including transcription factor binding sites (TFBS) and protein-protein
+interaction (PPI) data were processed from TRANSFAC \cite{Wingender:2000tk} and
+BioGrid \cite{Stark:2011ii}, respectively.
+
+<<brca data, eval=TRUE>>=
+load(system.file("extdata/tcga_brca_testdata.RData", package="Mirsynergy"))
+@
+
+Given as input the $2661\times 15$ mRNA and $142\times 15$ miRNA expression
+matrix along with the $2661\times 142$ target site matrix, we first construct an
+expression-based miRNA-mRNA interaction score (MMIS) matrix using LASSO from
+\Rpackage{glmnet} by treating mRNA as response and miRNA as input variables
+\cite{Friedman:2010wm}.
+
+<<lasso, eval=TRUE>>=
+library(glmnet)
+ptm <- proc.time()
+
+# lasso across all samples
+# X: N x T (input variables)
+# 
+obs <- t(Z)  # T x M
+
+# run LASSO to construct W
+W <- lapply(1:nrow(X), function(i) {				
+	
+	pred <- matrix(rep(0, nrow(Z)), nrow=1,
+		dimnames=list(rownames(X)[i], rownames(Z)))
+		
+	c_i <- t(matrix(rep(C[i,,drop=FALSE], nrow(obs)), ncol=nrow(obs)))
+	
+	c_i <- (c_i > 0) + 0 # convert to binary matrix
+	
+	inp <- obs * c_i
+	
+	# use only miRNA with at least one non-zero entry across T samples
+	inp <- inp[, apply(abs(inp), 2, max)>0, drop=FALSE]
+	
+	if(ncol(inp) >= 2) {
+		
+		# NOTE: negative coef means potential parget (remove intercept)
+		x <- coef(cv.glmnet(inp, X[i,], nfolds=3), s="lambda.min")[-1]
+				
+		pred[, match(colnames(inp), colnames(pred))] <- x
+	}
+	pred[pred>0] <- 0
+	
+	pred <- abs(pred)
+	
+	pred[pred>1] <- 1	
+	
+	pred
+})
+
+W <- do.call("rbind", W)
+
+dimnames(W) <- dimnames(C)
+
+print(sprintf("Time elapsed for LASSO: %.3f (min)",
+	(proc.time() - ptm)[3]/60))
+@
+
+
+Given the $\mf{W}$ and $\mf{H}$, we can now apply \Rfunction{mirsynergy} to
+obtain MiRM assignments.
+
+<<mirsynergy, eval=TRUE, echo=TRUE>>=
+V <- mirsynergy(W, H, verbose=FALSE)
+
+print_modules2(V)
+
+print(sprintf("Time elapsed (LASSO+Mirsynergy): %.3f (min)", 
+  (proc.time() - ptm)[3]/60))
+@
+
+There are several convenience functions implemented in the package to generate
+summary information such as Fig.\ref{fig:brca}. In particular, the plot depicts
+the m/miRNA distribution across modules (upper panels) as well as the synergy
+distribution by itself and as a function of the number of miRNA (bottom panels).
+
+\begin{figure}[htbp]
+\begin{center}
+<<plot_module_summary, eval=TRUE, fig=TRUE>>=
+plot_module_summary(V)
+@
+\caption{Summary information on MiRM using test data from TCGA-BRCA. Top panels:
+m/miRNA distribution across modulesas; Bottom panels: the synergy distribution
+by itself and as a function of the number of miRNA.}
+\label{fig:brca}
+\end{center}
+\end{figure}
+
+
+For more details, please refer to our paper (manuscript in prep.).
+
+\section{Session Info}
+<<sessi>>=
+sessionInfo()
+@
+
+
+\bibliography{Mirsynergy}
+\end{document}
