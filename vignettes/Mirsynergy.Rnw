@@ -153,8 +153,8 @@ W <- lapply(1:nrow(X), function(i) {
 	if(ncol(inp) >= 2) {
 		
 		# NOTE: negative coef means potential parget (remove intercept)
-		x <- coef(cv.glmnet(inp, X[i,], nfolds=3), s="lambda.min")[-1]
-				
+#		x <- coef(cv.glmnet(inp, X[i,], nfolds=3), s="lambda.min")[-1]
+		x <- as.numeric(coef(glmnet(inp, X[i,]), s=0.1)[-1])
 		pred[, match(colnames(inp), colnames(pred))] <- x
 	}
 	pred[pred>0] <- 0
