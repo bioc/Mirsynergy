@@ -7,7 +7,7 @@
  importFrom(gridExtra, grid.arrange)
  importFrom(igraph, clusters, get.data.frame, graph.adjacency,
             graph.data.frame)
- importFrom(Matrix, cBind, Matrix, rBind)
+ import(Matrix, Matrix)
  importFrom(parallel, mclapply)
  importFrom(RColorBrewer, brewer.pal)
  importFrom(reshape, melt, melt.array, melt.data.frame, melt.matrix, melt.table)
